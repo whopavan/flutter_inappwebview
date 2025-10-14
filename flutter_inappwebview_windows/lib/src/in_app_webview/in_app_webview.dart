@@ -1,5 +1,9 @@
+// ignore_for_file: invalid_use_of_internal_member
+
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+// Internal import to access WindowScope for multi-view (Flutter master)
+import 'package:flutter/src/widgets/_window.dart';
 import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
 import '../webview_environment/webview_environment.dart';
 import 'headless_in_app_webview.dart';
@@ -314,6 +318,7 @@ class WindowsInAppWebViewWidget extends PlatformInAppWebViewWidget {
     return CustomPlatformView(
       onPlatformViewCreated: _onPlatformViewCreated,
       creationParams: <String, dynamic>{
+        'viewId': WindowScope.of(context).rootView.viewId,
         'initialUrlRequest': params.initialUrlRequest?.toMap(),
         'initialFile': params.initialFile,
         'initialData': params.initialData?.toMap(),

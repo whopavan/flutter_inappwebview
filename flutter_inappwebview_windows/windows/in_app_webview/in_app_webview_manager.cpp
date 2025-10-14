@@ -118,13 +118,18 @@ namespace flutter_inappwebview_plugin
     auto webViewEnvironmentId = get_optional_fl_map_value<std::string>(*arguments, "webViewEnvironmentId");
     auto keepAliveId = get_optional_fl_map_value<std::string>(*arguments, "keepAliveId");
     auto windowId = get_optional_fl_map_value<int64_t>(*arguments, "windowId");
+    auto viewId = get_optional_fl_map_value<int64_t>(*arguments, "viewId");
 
+    // Resolve Flutter view by id if provided (multi-view), else fall back to implicit view
+    std::shared_ptr<flutter::FlutterView> flutterView = viewId.has_value()
+      ? plugin->registrar->GetViewById(viewId.value())
+      : std::shared_ptr<flutter::FlutterView>(plugin->registrar->GetView(), [](flutter::FlutterView*){});
     RECT bounds;
-    GetClientRect(plugin->registrar->GetView()->GetNativeWindow(), &bounds);
+    GetClientRect(flutterView->GetNativeWindow(), &bounds);
 
     auto hwnd = CreateWindowEx(0, windowClass_.lpszClassName, L"", 0, 0,
       0, bounds.right - bounds.left, bounds.bottom - bounds.top,
-      plugin->registrar->GetView()->GetNativeWindow(),
+      flutterView->GetNativeWindow(),
       nullptr,
       windowClass_.hInstance, nullptr);
 

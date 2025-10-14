@@ -30,10 +30,7 @@ namespace flutter_inappwebview_plugin
 
     void createWebViewEnvironment(const std::string& id, std::unique_ptr<WebViewEnvironmentSettings> settings, std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
     void createOrGetDefaultWebViewEnvironment(const std::function<void(WebViewEnvironment*)> completionHandler);
-    HWND getHWND()
-    {
-      return hwnd_;
-    }
+    HWND getHWND();
 
     static std::optional<std::string> getAvailableVersion(std::optional<std::string> browserExecutableFolder);
     static std::optional<int> compareBrowserVersions(std::string version1, std::string version2);

@@ -22,7 +22,10 @@
 #include "user_content_controller.h"
 #include "webview_channel_delegate.h"
 
+#pragma warning(push)
+#pragma warning(disable:4458)
 #include <WebView2EnvironmentOptions.h>
+#pragma warning(pop)
 
 namespace flutter_inappwebview_plugin
 {

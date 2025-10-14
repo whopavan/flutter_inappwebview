@@ -19,12 +19,6 @@ namespace flutter_inappwebview_plugin
     windowClass_.lpfnWndProc = &DefWindowProc;
 
     RegisterClass(&windowClass_);
-
-    hwnd_ = CreateWindowEx(0, windowClass_.lpszClassName, L"", 0, 0,
-      0, 0, 0,
-      plugin->registrar->GetView()->GetNativeWindow(),
-      nullptr,
-      windowClass_.hInstance, nullptr);
   }
 
   void WebViewEnvironmentManager::HandleMethodCall(const flutter::MethodCall<flutter::EncodableValue>& method_call,
@@ -96,6 +90,23 @@ namespace flutter_inappwebview_plugin
           completionHandler(nullptr);
         }
       });
+  }
+
+  HWND WebViewEnvironmentManager::getHWND()
+  {
+    if (hwnd_) {
+      return hwnd_;
+    }
+    auto parent = plugin->registrar->GetView();
+    if (!parent) {
+      return nullptr;
+    }
+    hwnd_ = CreateWindowEx(0, windowClass_.lpszClassName, L"", 0,
+      0, 0, 0, 0,
+      parent->GetNativeWindow(),
+      nullptr,
+      windowClass_.hInstance, nullptr);
+    return hwnd_;
   }
 
   std::optional<std::string> WebViewEnvironmentManager::getAvailableVersion(std::optional<std::string> browserExecutableFolder)

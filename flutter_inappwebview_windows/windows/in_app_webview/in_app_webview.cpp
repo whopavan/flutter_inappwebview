@@ -2375,7 +2375,12 @@ namespace flutter_inappwebview_plugin
       auto borderWidth = (GetSystemMetrics(SM_CXBORDER) + GetSystemMetrics(SM_CXPADDEDBORDER)) * scale_factor;
 
       RECT flutterWindowRect;
-      HWND flutterWindowHWnd = plugin->registrar->GetView()->GetNativeWindow();
+      HWND flutterWindowHWnd = nullptr;
+      if (succeededOrLog(webViewController->get_ParentWindow(&flutterWindowHWnd)) && flutterWindowHWnd != nullptr) {
+        flutterWindowHWnd = GetAncestor(flutterWindowHWnd, GA_ROOT);
+      } else {
+        flutterWindowHWnd = plugin->registrar->GetView()->GetNativeWindow();
+      }
       GetWindowRect(flutterWindowHWnd, &flutterWindowRect);
 
       HWND webViewHWnd;
