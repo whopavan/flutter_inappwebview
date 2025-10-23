@@ -24,14 +24,6 @@ namespace flutter_inappwebview_plugin
       return;
     }
 
-    auto hwnd = plugin->webViewEnvironmentManager->getHWND();
-    if (!hwnd) {
-      if (completionHandler) {
-        completionHandler(E_FAIL);
-      }
-      return;
-    }
-
     auto options = Make<CoreWebView2EnvironmentOptions>();
     if (settings) {
       if (settings->additionalBrowserArguments.has_value()) {
@@ -90,7 +82,7 @@ namespace flutter_inappwebview_plugin
       settings && settings->userDataFolder.has_value() ? utf8_to_wide(settings->userDataFolder.value()).c_str() : nullptr,
       options.Get(),
       Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-        [this, hwnd, completionHandler](HRESULT result, wil::com_ptr<ICoreWebView2Environment> environment) -> HRESULT
+        [this, completionHandler](HRESULT result, wil::com_ptr<ICoreWebView2Environment> environment) -> HRESULT
         {
           if (succeededOrLog(result)) {
             environment_ = std::move(environment);

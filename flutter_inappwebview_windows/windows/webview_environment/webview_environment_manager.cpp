@@ -98,12 +98,16 @@ namespace flutter_inappwebview_plugin
       return hwnd_;
     }
     auto parent = plugin->registrar->GetView();
-    if (!parent) {
-      return nullptr;
+    HWND parentWindow = nullptr;
+    if (parent) {
+      parentWindow = parent->GetNativeWindow();
+    } else {
+      // Use HWND_MESSAGE for headless scenarios when no Flutter view is available
+      parentWindow = HWND_MESSAGE;
     }
     hwnd_ = CreateWindowEx(0, windowClass_.lpszClassName, L"", 0,
       0, 0, 0, 0,
-      parent->GetNativeWindow(),
+      parentWindow,
       nullptr,
       windowClass_.hInstance, nullptr);
     return hwnd_;
