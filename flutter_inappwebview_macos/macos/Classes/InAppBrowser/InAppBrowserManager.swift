@@ -53,18 +53,19 @@ public class InAppBrowserManager: ChannelDelegate {
         let windowId = arguments["windowId"] as? Int64
         let initialUserScripts = arguments["initialUserScripts"] as? [[String: Any]]
         let menuItems = arguments["menuItems"] as! [[String: Any?]]
-        
+        let viewId = arguments["viewId"] as? Int64
+
         let browserSettings = InAppBrowserSettings()
         let _ = browserSettings.parse(settings: settings)
-        
+
         let webViewSettings = InAppWebViewSettings()
         let _ = webViewSettings.parse(settings: settings)
-        
+
         let webViewController = InAppBrowserWebViewController()
         webViewController.plugin = plugin
         webViewController.browserSettings = browserSettings
         webViewController.webViewSettings = webViewSettings
-        
+
         webViewController.id = id
         webViewController.initialUrlRequest = urlRequest != nil ? URLRequest.init(fromPluginMap: urlRequest!) : nil
         webViewController.initialFile = assetFilePath
@@ -75,7 +76,7 @@ public class InAppBrowserManager: ChannelDelegate {
         webViewController.windowId = windowId
         webViewController.initialUserScripts = initialUserScripts ?? []
         webViewController.isHidden = browserSettings.hidden
-        
+
         let window = InAppBrowserWindow(contentViewController: webViewController)
         window.browserSettings = browserSettings
         window.contentViewController = webViewController
@@ -83,22 +84,34 @@ public class InAppBrowserManager: ChannelDelegate {
             window.menuItems.append(InAppBrowserMenuItem.fromMap(map: menuItem)!)
         }
         window.prepare()
-        
+
+        // Resolve Flutter view by id if provided (multi-view), else fall back to main window
+        // Note: macOS FlutterPluginRegistrar doesn't have multi-view API yet (GetViewById),
+        // so for now we use registrar.view (single view) or fall back to main window
+        var parentWindow: NSWindow? = NSApplication.shared.mainWindow
+        if let plugin = plugin {
+            if let flutterView = plugin.registrar.view {
+                parentWindow = flutterView.window ?? NSApplication.shared.mainWindow
+            }
+        }
+        // TODO: Once macOS FlutterPluginRegistrar supports multi-view API,
+        // use viewId to get specific view: plugin.registrar.view(withIdentifier: viewId)
+
         if #available(macOS 10.12, *), browserSettings.windowType == .tabbed {
-            NSApplication.shared.mainWindow?.addTabbedWindow(window, ordered: .above)
+            parentWindow?.addTabbedWindow(window, ordered: .above)
         } else if browserSettings.windowType == .child {
-            NSApplication.shared.mainWindow?.addChildWindow(window, ordered: .above)
+            parentWindow?.addChildWindow(window, ordered: .above)
         } else {
             window.windowController?.showWindow(self)
         }
-        
+
         window.makeKeyAndOrderFront(self)
         if browserSettings.hidden {
             // https://github.com/pichillilorenzo/flutter_inappwebview/issues/1939
             // without calling first window.makeKeyAndOrderFront(self)
             // window.hide() would deallocate and dispose the InAppBrowserWindow
             window.hide()
-            NSApplication.shared.mainWindow?.makeKeyAndOrderFront(self)
+            parentWindow?.makeKeyAndOrderFront(self)
         }
     }
     

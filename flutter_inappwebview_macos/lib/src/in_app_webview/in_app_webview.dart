@@ -308,6 +308,7 @@ class MacOSInAppWebViewWidget extends PlatformInAppWebViewWidget {
       onPlatformViewCreated: _onPlatformViewCreated,
       gestureRecognizers: params.gestureRecognizers,
       creationParams: <String, dynamic>{
+        'viewId': View.maybeOf(context)?.viewId,
         'initialUrlRequest': params.initialUrlRequest?.toMap(),
         'initialFile': params.initialFile,
         'initialData': params.initialData?.toMap(),
