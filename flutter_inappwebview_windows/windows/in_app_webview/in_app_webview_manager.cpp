@@ -17,6 +17,25 @@
 
 namespace flutter_inappwebview_plugin
 {
+  // Custom window procedure that prevents the WebView window from accepting focus
+  // This ensures the parent Flutter window maintains focus even when interacting with the WebView
+  static LRESULT CALLBACK WebViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+  {
+    switch (msg) {
+    case WM_SETFOCUS:
+      // Prevent the window from accepting focus - return focus to parent
+      if (HWND parent = GetParent(hwnd)) {
+        SetFocus(parent);
+      }
+      return 0;
+    case WM_MOUSEACTIVATE:
+      // Prevent window activation on mouse click
+      return MA_NOACTIVATE;
+    default:
+      return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+  }
+
   InAppWebViewManager::InAppWebViewManager(const FlutterInappwebviewWindowsPlugin* plugin)
     : plugin(plugin),
     ChannelDelegate(plugin->registrar->messenger(), InAppWebViewManager::METHOD_CHANNEL_NAME)
@@ -53,7 +72,7 @@ namespace flutter_inappwebview_plugin
     }
 
     windowClass_.lpszClassName = CustomPlatformView::CLASS_NAME;
-    windowClass_.lpfnWndProc = &DefWindowProc;
+    windowClass_.lpfnWndProc = &WebViewWindowProc;
 
     RegisterClass(&windowClass_);
   }
@@ -127,7 +146,10 @@ namespace flutter_inappwebview_plugin
     RECT bounds;
     GetClientRect(flutterView->GetNativeWindow(), &bounds);
 
-    auto hwnd = CreateWindowEx(0, windowClass_.lpszClassName, L"", 0, 0,
+    // Create as WS_CHILD so it doesn't steal focus from the parent Flutter window
+    // In composition mode, this window is only used for WebView2 initialization,
+    // not for actual rendering (which happens via the compositor)
+    auto hwnd = CreateWindowEx(0, windowClass_.lpszClassName, L"", WS_CHILD, 0,
       0, bounds.right - bounds.left, bounds.bottom - bounds.top,
       flutterView->GetNativeWindow(),
       nullptr,
