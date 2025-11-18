@@ -146,10 +146,11 @@ namespace flutter_inappwebview_plugin
     RECT bounds;
     GetClientRect(flutterView->GetNativeWindow(), &bounds);
 
-    // Create as WS_CHILD so it doesn't steal focus from the parent Flutter window
+    // Create as WS_CHILD with WS_DISABLED to prevent any focus changes
+    // WS_DISABLED prevents the window from receiving focus entirely
     // In composition mode, this window is only used for WebView2 initialization,
     // not for actual rendering (which happens via the compositor)
-    auto hwnd = CreateWindowEx(0, windowClass_.lpszClassName, L"", WS_CHILD, 0,
+    auto hwnd = CreateWindowEx(0, windowClass_.lpszClassName, L"", WS_CHILD | WS_DISABLED, 0,
       0, bounds.right - bounds.left, bounds.bottom - bounds.top,
       flutterView->GetNativeWindow(),
       nullptr,
