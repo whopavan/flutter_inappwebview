@@ -21,6 +21,7 @@ namespace flutter_inappwebview_plugin
   constexpr auto kMethodSetPointerButton = "setPointerButton";
   constexpr auto kMethodSetScrollDelta = "setScrollDelta";
   constexpr auto kMethodSetFpsLimit = "setFpsLimit";
+  constexpr auto kMethodSendKeyEvent = "sendKeyEvent";
 
   constexpr auto kEventType = "type";
   constexpr auto kEventValue = "value";
@@ -331,6 +332,34 @@ namespace flutter_inappwebview_plugin
           : std::make_optional(*value));
         return result->Success();
       }
+    }
+    // sendKeyEvent: {type, key, code, keyCode, ctrlKey, shiftKey, altKey, metaKey, repeat, location, isKeypad, text?}
+    else if (method_name.compare(kMethodSendKeyEvent) == 0) {
+      const auto* map = std::get_if<flutter::EncodableMap>(method_call.arguments());
+      if (map && view) {
+        auto type = std::get<std::string>(map->at(flutter::EncodableValue("type")));
+        auto key = std::get<std::string>(map->at(flutter::EncodableValue("key")));
+        auto code = std::get<std::string>(map->at(flutter::EncodableValue("code")));
+        auto keyCode = std::get<int32_t>(map->at(flutter::EncodableValue("keyCode")));
+        auto ctrlKey = std::get<bool>(map->at(flutter::EncodableValue("ctrlKey")));
+        auto shiftKey = std::get<bool>(map->at(flutter::EncodableValue("shiftKey")));
+        auto altKey = std::get<bool>(map->at(flutter::EncodableValue("altKey")));
+        auto metaKey = std::get<bool>(map->at(flutter::EncodableValue("metaKey")));
+        auto repeat = std::get<bool>(map->at(flutter::EncodableValue("repeat")));
+        auto location = std::get<int32_t>(map->at(flutter::EncodableValue("location")));
+        auto isKeypad = std::get<bool>(map->at(flutter::EncodableValue("isKeypad")));
+
+        // text is optional
+        std::optional<std::string> text;
+        auto textIt = map->find(flutter::EncodableValue("text"));
+        if (textIt != map->end() && !textIt->second.IsNull()) {
+          text = std::get<std::string>(textIt->second);
+        }
+
+        view->sendKeyEvent(type, key, code, keyCode, ctrlKey, shiftKey, altKey, metaKey, repeat, location, isKeypad, text);
+        return result->Success();
+      }
+      return result->Error(kErrorInvalidArgs);
     }
 
     result->NotImplemented();

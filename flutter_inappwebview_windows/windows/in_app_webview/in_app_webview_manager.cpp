@@ -17,19 +17,11 @@
 
 namespace flutter_inappwebview_plugin
 {
-  // Custom window procedure that prevents the WebView window from accepting focus
-  // This ensures the parent Flutter window maintains focus even when interacting with the WebView
+  // Custom window procedure - window is WS_DISABLED so this rarely gets called
   static LRESULT CALLBACK WebViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   {
     switch (msg) {
-    case WM_SETFOCUS:
-      // Prevent the window from accepting focus - return focus to parent
-      if (HWND parent = GetParent(hwnd)) {
-        SetFocus(parent);
-      }
-      return 0;
     case WM_MOUSEACTIVATE:
-      // Prevent window activation on mouse click
       return MA_NOACTIVATE;
     default:
       return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -146,10 +138,10 @@ namespace flutter_inappwebview_plugin
     RECT bounds;
     GetClientRect(flutterView->GetNativeWindow(), &bounds);
 
-    // Create as WS_CHILD with WS_DISABLED to prevent any focus changes
-    // WS_DISABLED prevents the window from receiving focus entirely
-    // In composition mode, this window is only used for WebView2 initialization,
-    // not for actual rendering (which happens via the compositor)
+    // Create as WS_CHILD with WS_DISABLED to prevent focus changes
+    // This keeps focus on Flutter window (no app lifecycle changes)
+    // Mouse input works via SendMouseInput on composition controller
+    // Keyboard input is forwarded via JavaScript injection
     auto hwnd = CreateWindowEx(0, windowClass_.lpszClassName, L"", WS_CHILD | WS_DISABLED, 0,
       0, bounds.right - bounds.left, bounds.bottom - bounds.top,
       flutterView->GetNativeWindow(),

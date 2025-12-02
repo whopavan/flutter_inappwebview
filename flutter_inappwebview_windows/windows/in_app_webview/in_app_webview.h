@@ -133,6 +133,9 @@ namespace flutter_inappwebview_plugin
     void setPointerButtonState(InAppWebViewPointerEventKind kind, InAppWebViewPointerButton button);
     void sendScroll(double offset, bool horizontal);
     void setScrollDelta(double delta_x, double delta_y);
+    void sendKeyEvent(const std::string& type, const std::string& key, const std::string& code,
+      int keyCode, bool ctrlKey, bool shiftKey, bool altKey, bool metaKey, bool repeat,
+      int location, bool isKeypad, const std::optional<std::string>& text);
     void onSurfaceSizeChanged(SurfaceSizeChangedCallback callback)
     {
       surfaceSizeChangedCallback_ = std::move(callback);

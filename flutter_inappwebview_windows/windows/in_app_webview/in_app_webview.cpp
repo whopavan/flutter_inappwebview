@@ -2576,6 +2576,131 @@ namespace flutter_inappwebview_plugin
     }
   }
 
+  // Helper function to escape a string for use in JSON
+  static std::string escapeJsonString(const std::string& str)
+  {
+    std::string result;
+    result.reserve(str.size() * 2);
+    for (char c : str) {
+      switch (c) {
+      case '"': result += "\\\""; break;
+      case '\\': result += "\\\\"; break;
+      case '\n': result += "\\n"; break;
+      case '\r': result += "\\r"; break;
+      case '\t': result += "\\t"; break;
+      case '\b': result += "\\b"; break;
+      case '\f': result += "\\f"; break;
+      default:
+        if (static_cast<unsigned char>(c) < 0x20) {
+          char buf[8];
+          snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
+          result += buf;
+        }
+        else {
+          result += c;
+        }
+        break;
+      }
+    }
+    return result;
+  }
+
+  void InAppWebView::sendKeyEvent(const std::string& type, const std::string& key, const std::string& code,
+    int keyCode, bool ctrlKey, bool shiftKey, bool altKey, bool metaKey, bool repeat,
+    int location, bool isKeypad, const std::optional<std::string>& text)
+  {
+    if (!webView) {
+      return;
+    }
+
+    // Use Chrome DevTools Protocol (CDP) Input.dispatchKeyEvent
+    // This is the same method used by Puppeteer/Playwright and provides:
+    // - Native Chrome input handling
+    // - Proper IME support
+    // - Works regardless of window focus state
+    // - Better compatibility with complex web apps
+
+    wil::com_ptr<ICoreWebView2_11> webView11;
+    if (FAILED(webView->QueryInterface(IID_PPV_ARGS(&webView11)))) {
+      return;
+    }
+
+    // Calculate modifiers bitmask: Alt=1, Ctrl=2, Meta=4, Shift=8
+    int modifiers = 0;
+    if (altKey) modifiers |= 1;
+    if (ctrlKey) modifiers |= 2;
+    if (metaKey) modifiers |= 4;
+    if (shiftKey) modifiers |= 8;
+
+    std::string escapedKey = escapeJsonString(key);
+    std::string escapedCode = escapeJsonString(code);
+    std::string escapedText = text.has_value() ? escapeJsonString(text.value()) : "";
+
+    // For keydown, we need to send rawKeyDown, then optionally char for printable keys
+    // For keyup, we send keyUp
+    if (type == "keydown") {
+      // Send rawKeyDown event with full CDP parameters
+      std::string rawKeyDownParams = "{"
+        "\"type\": \"rawKeyDown\","
+        "\"key\": \"" + escapedKey + "\","
+        "\"code\": \"" + escapedCode + "\","
+        "\"windowsVirtualKeyCode\": " + std::to_string(keyCode) + ","
+        "\"nativeVirtualKeyCode\": " + std::to_string(keyCode) + ","
+        "\"modifiers\": " + std::to_string(modifiers) + ","
+        "\"autoRepeat\": " + (repeat ? "true" : "false") + ","
+        "\"isKeypad\": " + (isKeypad ? "true" : "false") + ","
+        "\"location\": " + std::to_string(location) +
+        "}";
+
+      webView11->CallDevToolsProtocolMethod(L"Input.dispatchKeyEvent",
+        utf8_to_wide(rawKeyDownParams).c_str(), nullptr);
+
+      // For printable characters, send char event with the actual text
+      // text contains the character with modifiers applied (e.g., Shift+1 = '!')
+      if (text.has_value() && !text.value().empty() && !ctrlKey && !altKey && !metaKey) {
+        // unmodifiedText is the character without shift (for Shift+A, text='A', unmodifiedText='a')
+        std::string unmodifiedText = escapedText;
+        if (shiftKey && escapedText.length() == 1) {
+          char c = escapedText[0];
+          if (c >= 'A' && c <= 'Z') {
+            unmodifiedText = std::string(1, c + 32); // lowercase
+          }
+        }
+
+        std::string charParams = "{"
+          "\"type\": \"char\","
+          "\"text\": \"" + escapedText + "\","
+          "\"unmodifiedText\": \"" + unmodifiedText + "\","
+          "\"key\": \"" + escapedKey + "\","
+          "\"code\": \"" + escapedCode + "\","
+          "\"windowsVirtualKeyCode\": " + std::to_string(keyCode) + ","
+          "\"nativeVirtualKeyCode\": " + std::to_string(keyCode) + ","
+          "\"modifiers\": " + std::to_string(modifiers) + ","
+          "\"isKeypad\": " + (isKeypad ? "true" : "false") + ","
+          "\"location\": " + std::to_string(location) +
+          "}";
+
+        webView11->CallDevToolsProtocolMethod(L"Input.dispatchKeyEvent",
+          utf8_to_wide(charParams).c_str(), nullptr);
+      }
+    }
+    else if (type == "keyup") {
+      std::string keyUpParams = "{"
+        "\"type\": \"keyUp\","
+        "\"key\": \"" + escapedKey + "\","
+        "\"code\": \"" + escapedCode + "\","
+        "\"windowsVirtualKeyCode\": " + std::to_string(keyCode) + ","
+        "\"nativeVirtualKeyCode\": " + std::to_string(keyCode) + ","
+        "\"modifiers\": " + std::to_string(modifiers) + ","
+        "\"isKeypad\": " + (isKeypad ? "true" : "false") + ","
+        "\"location\": " + std::to_string(location) +
+        "}";
+
+      webView11->CallDevToolsProtocolMethod(L"Input.dispatchKeyEvent",
+        utf8_to_wide(keyUpParams).c_str(), nullptr);
+    }
+  }
+
   bool InAppWebView::createSurface(const HWND parentWindow,
     winrt::com_ptr<ABI::Windows::UI::Composition::ICompositor> compositor)
   {
