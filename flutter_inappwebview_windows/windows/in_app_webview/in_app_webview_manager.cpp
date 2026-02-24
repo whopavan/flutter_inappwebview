@@ -166,6 +166,7 @@ namespace flutter_inappwebview_plugin
       ? plugin->webViewEnvironmentManager->webViewEnvironments.at(webViewEnvironmentId.value()).get() : nullptr;
 
     auto initialSettings = std::make_shared<InAppWebViewSettings>(settingsMap);
+    auto contextMenuMap = get_fl_map_value<flutter::EncodableMap>(*arguments, "contextMenu", flutter::EncodableMap{});
 
     InAppWebView::createInAppWebViewEnv(hwnd, true, webViewEnvironment, initialSettings,
       [=](wil::com_ptr<ICoreWebView2Environment> webViewEnv,
@@ -180,7 +181,8 @@ namespace flutter_inappwebview_plugin
           InAppWebViewCreationParams params = {
             "",
             std::move(initialSettings),
-            initialUserScripts
+            initialUserScripts,
+            contextMenuMap
           };
 
           auto inAppWebView = std::make_unique<InAppWebView>(plugin, params, hwnd, std::move(webViewEnv), std::move(webViewController), std::move(webViewCompositionController));

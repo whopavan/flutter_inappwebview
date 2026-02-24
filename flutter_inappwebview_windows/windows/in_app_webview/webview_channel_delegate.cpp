@@ -642,6 +642,42 @@ namespace flutter_inappwebview_plugin
     channel->InvokeMethod("onZoomScaleChanged", std::move(arguments));
   }
 
+  void WebViewChannelDelegate::onCreateContextMenu(const std::optional<std::string>& extra, const int64_t& type) const
+  {
+    if (!channel) {
+      return;
+    }
+
+    auto arguments = std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
+      {"extra", make_fl_value(extra)},
+      {"type", type},
+      });
+    channel->InvokeMethod("onCreateContextMenu", std::move(arguments));
+  }
+
+  void WebViewChannelDelegate::onHideContextMenu() const
+  {
+    if (!channel) {
+      return;
+    }
+
+    auto arguments = std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{});
+    channel->InvokeMethod("onHideContextMenu", std::move(arguments));
+  }
+
+  void WebViewChannelDelegate::onContextMenuActionItemClicked(const int64_t& id, const std::string& title) const
+  {
+    if (!channel) {
+      return;
+    }
+
+    auto arguments = std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
+      {"id", id},
+      {"title", title},
+      });
+    channel->InvokeMethod("onContextMenuActionItemClicked", std::move(arguments));
+  }
+
   WebViewChannelDelegate::~WebViewChannelDelegate()
   {
     debugLog("dealloc WebViewChannelDelegate");

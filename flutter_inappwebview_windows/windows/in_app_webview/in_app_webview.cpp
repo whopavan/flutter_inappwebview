@@ -313,6 +313,44 @@ namespace flutter_inappwebview_plugin
       }
     }
 
+    // Parse context menu items from creation params
+    if (!params.contextMenu.empty()) {
+      auto menuItemsIt = params.contextMenu.find(flutter::EncodableValue("menuItems"));
+      if (menuItemsIt != params.contextMenu.end() && std::holds_alternative<flutter::EncodableList>(menuItemsIt->second)) {
+        auto& menuItemsList = std::get<flutter::EncodableList>(menuItemsIt->second);
+        for (const auto& item : menuItemsList) {
+          if (std::holds_alternative<flutter::EncodableMap>(item)) {
+            auto& itemMap = std::get<flutter::EncodableMap>(item);
+            auto idIt = itemMap.find(flutter::EncodableValue("id"));
+            auto titleIt = itemMap.find(flutter::EncodableValue("title"));
+            if (idIt != itemMap.end() && titleIt != itemMap.end()) {
+              int64_t id = 0;
+              if (std::holds_alternative<int32_t>(idIt->second)) {
+                id = std::get<int32_t>(idIt->second);
+              }
+              else if (std::holds_alternative<int64_t>(idIt->second)) {
+                id = std::get<int64_t>(idIt->second);
+              }
+              std::string title;
+              if (std::holds_alternative<std::string>(titleIt->second)) {
+                title = std::get<std::string>(titleIt->second);
+              }
+              contextMenuItems_.push_back({ id, title });
+            }
+          }
+        }
+      }
+
+      auto settingsIt = params.contextMenu.find(flutter::EncodableValue("settings"));
+      if (settingsIt != params.contextMenu.end() && std::holds_alternative<flutter::EncodableMap>(settingsIt->second)) {
+        auto& settingsMap = std::get<flutter::EncodableMap>(settingsIt->second);
+        auto hideIt = settingsMap.find(flutter::EncodableValue("hideDefaultSystemContextMenuItems"));
+        if (hideIt != settingsMap.end() && std::holds_alternative<bool>(hideIt->second)) {
+          hideDefaultSystemContextMenuItems_ = std::get<bool>(hideIt->second);
+        }
+      }
+    }
+
     registerEventHandlers();
   }
 
@@ -1417,6 +1455,134 @@ namespace flutter_inappwebview_plugin
           }
         ).Get(), nullptr);
       failedLog(add_ServerCertificateErrorDetected_HResult);
+    }
+
+    if (auto webView11 = webView.try_query<ICoreWebView2_11>()) {
+      auto add_ContextMenuRequested_HResult = webView11->add_ContextMenuRequested(
+        Callback<ICoreWebView2ContextMenuRequestedEventHandler>(
+          [this](ICoreWebView2* sender, ICoreWebView2ContextMenuRequestedEventArgs* args)
+          {
+            if (!channelDelegate || contextMenuItems_.empty()) {
+              return S_OK;
+            }
+
+            // Get context menu target info for the hit test result
+            wil::com_ptr<ICoreWebView2ContextMenuTarget> target;
+            std::optional<std::string> extra;
+            int64_t hitType = 0; // UNKNOWN_TYPE
+            if (SUCCEEDED(args->get_ContextMenuTarget(&target)) && target) {
+              COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND kind;
+              if (SUCCEEDED(target->get_Kind(&kind))) {
+                wil::unique_cotaskmem_string uri;
+                switch (kind) {
+                case COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND_PAGE:
+                  hitType = 0; // UNKNOWN_TYPE
+                  if (SUCCEEDED(target->get_PageUri(&uri)) && uri) {
+                    extra = wide_to_utf8(uri.get());
+                  }
+                  break;
+                case COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND_IMAGE:
+                  hitType = 5; // IMAGE_TYPE
+                  if (SUCCEEDED(target->get_SourceUri(&uri)) && uri) {
+                    extra = wide_to_utf8(uri.get());
+                  }
+                  break;
+                case COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND_SELECTED_TEXT:
+                  hitType = 0; // UNKNOWN_TYPE
+                  {
+                    wil::unique_cotaskmem_string selText;
+                    if (SUCCEEDED(target->get_SelectionText(&selText)) && selText) {
+                      extra = wide_to_utf8(selText.get());
+                    }
+                  }
+                  break;
+                case COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND_AUDIO:
+                case COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND_VIDEO:
+                  hitType = 0; // UNKNOWN_TYPE
+                  if (SUCCEEDED(target->get_SourceUri(&uri)) && uri) {
+                    extra = wide_to_utf8(uri.get());
+                  }
+                  break;
+                }
+
+                // Check if it's a link
+                wil::unique_cotaskmem_string linkUri;
+                BOOL hasLinkUri = FALSE;
+                if (SUCCEEDED(target->get_HasLinkUri(&hasLinkUri)) && hasLinkUri) {
+                  if (SUCCEEDED(target->get_LinkUri(&linkUri)) && linkUri) {
+                    hitType = 7; // SRC_ANCHOR_TYPE
+                    extra = wide_to_utf8(linkUri.get());
+                    // If it's also an image, set SRC_IMAGE_ANCHOR_TYPE
+                    if (kind == COREWEBVIEW2_CONTEXT_MENU_TARGET_KIND_IMAGE) {
+                      hitType = 8; // SRC_IMAGE_ANCHOR_TYPE
+                    }
+                  }
+                }
+
+                // Check if editable
+                BOOL isEditable = FALSE;
+                if (SUCCEEDED(target->get_IsEditable(&isEditable)) && isEditable) {
+                  hitType = 9; // EDIT_TEXT_TYPE
+                }
+              }
+            }
+
+            // Fire onCreateContextMenu to Dart
+            channelDelegate->onCreateContextMenu(extra, hitType);
+
+            // Get the menu items collection and the environment to create custom items
+            wil::com_ptr<ICoreWebView2ContextMenuItemCollection> menuItems;
+            if (FAILED(args->get_MenuItems(&menuItems))) {
+              return S_OK;
+            }
+
+            // If hideDefaultSystemContextMenuItems, remove all existing items
+            if (hideDefaultSystemContextMenuItems_) {
+              UINT32 count = 0;
+              menuItems->get_Count(&count);
+              for (UINT32 i = count; i > 0; i--) {
+                menuItems->RemoveValueAtIndex(i - 1);
+              }
+            }
+
+            auto webViewEnv9 = webViewEnv.try_query<ICoreWebView2Environment9>();
+            if (!webViewEnv9) {
+              return S_OK;
+            }
+
+            // Add custom menu items
+            for (const auto& menuItemInfo : contextMenuItems_) {
+              wil::com_ptr<ICoreWebView2ContextMenuItem> customItem;
+              auto wideTitle = utf8_to_wide(menuItemInfo.title);
+              if (SUCCEEDED(webViewEnv9->CreateContextMenuItem(
+                wideTitle.c_str(),
+                nullptr,
+                COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND,
+                &customItem))) {
+
+                auto itemId = menuItemInfo.id;
+                auto itemTitle = menuItemInfo.title;
+                customItem->add_CustomItemSelected(
+                  Callback<ICoreWebView2CustomItemSelectedEventHandler>(
+                    [this, itemId, itemTitle](ICoreWebView2ContextMenuItem* sender, IUnknown* args)
+                    {
+                      if (channelDelegate) {
+                        channelDelegate->onContextMenuActionItemClicked(itemId, itemTitle);
+                        channelDelegate->onHideContextMenu();
+                      }
+                      return S_OK;
+                    }).Get(), nullptr);
+
+                UINT32 count = 0;
+                menuItems->get_Count(&count);
+                menuItems->InsertValueAtIndex(count, customItem.get());
+              }
+            }
+
+            return S_OK;
+          }
+        ).Get(), nullptr);
+      failedLog(add_ContextMenuRequested_HResult);
     }
 
     if (userContentController) {

@@ -130,6 +130,9 @@ namespace flutter_inappwebview_plugin
     void onDownloadStarting(std::shared_ptr<DownloadStartRequest> request, std::unique_ptr<DownloadStartRequestCallback> callback) const;
     void onAcceleratorKeyPressed(std::shared_ptr<AcceleratorKeyPressedDetail> detail) const;
     void onZoomScaleChanged(const double& oldScale, const double& newScale) const;
+    void onCreateContextMenu(const std::optional<std::string>& extra, const int64_t& type) const;
+    void onHideContextMenu() const;
+    void onContextMenuActionItemClicked(const int64_t& id, const std::string& title) const;
   };
 }
 

@@ -88,6 +88,7 @@ namespace flutter_inappwebview_plugin
     const std::variant<std::string, int64_t> id;
     const std::shared_ptr<InAppWebViewSettings> initialSettings;
     const std::optional<std::vector<std::shared_ptr<UserScript>>> initialUserScripts;
+    const flutter::EncodableMap contextMenu = {};
   };
 
   class InAppWebView
@@ -211,6 +212,13 @@ namespace flutter_inappwebview_plugin
     std::map<std::string, std::pair<wil::com_ptr<ICoreWebView2DevToolsProtocolEventReceiver>, EventRegistrationToken>> devToolsProtocolEventListener_ = {};
     int64_t previousAuthRequestFailureCount = 0;
     double zoomScaleFactor_ = 1.0;
+
+    struct ContextMenuItemInfo {
+      int64_t id;
+      std::string title;
+    };
+    std::vector<ContextMenuItemInfo> contextMenuItems_;
+    bool hideDefaultSystemContextMenuItems_ = false;
 
     void registerEventHandlers();
     void registerSurfaceEventHandlers();
